@@ -2,18 +2,19 @@
 #
 # PLATIN tool set
 #
-# Flexpret specific functionality
-#
+# Wildcat specific functionality
+# Based on riscv.rb by Henriette Hofmeier
+# and flexport.rb by Tassilo Tanneberger
 
 require 'English'
 
-module RISCV32
+module RISCV
 
 #
-# Class to (lazily) read hifive1 simulator trace
+# Class to (lazily) read Wildcat simulator trace
 # yields [program_counter, cycles] pairs
 #
-class FlexpretSimulatorTrace
+class WildcatSimulatorTrace
   TIME_PER_TICK = 500
 
   attr_reader :stats_num_items
@@ -136,7 +137,7 @@ class Architecture < PML::Architecture
   def config_for_simulator; end
 
   def simulator_trace(options, _watchpoints)
-    FlexpretSimulatorTrace.new(options.binary_file, self, options)
+    WildcatSimulatorTrace.new(options.binary_file, self, options)
   end
 
   def objdump_command
@@ -172,19 +173,19 @@ class Architecture < PML::Architecture
     0
   end
 
-  def lib_cycle_cost(func) 
+  def lib_cycle_cost(func)
     #binding.pry
 	case func
 	when "__mulsi3"
-		1
+		9
 	when "__divsi3"
-		1
+		2
 	when "__udivsi3"
-		1
+		18
 	when "__umodsi3"
-		1
+		13
 	when "__modsi3"
-		1
+		12
 	else
 		die("Unknown library function: #{func}")
 	end
@@ -200,19 +201,24 @@ class Architecture < PML::Architecture
 	  1
 
 	when 'JAL', 'J', 'JALR'
-	  1
+    # Assuming branching not taken
+    1 + PIPELINE_REFILL
 
 	when 'BEQ', 'BNE', 'BLT', 'BGE', 'BLTU', 'BGEU'
-	  1
+    # Assuming branching not taken
+    1 + PIPELINE_REFILL
 
 	when 'LW'
-	  1
+    # Only takes 1 cycle in hardware simulation
+    1
 
 	when 'LH', 'LHU', 'LB', 'LBU'
-	  1
+    # Only takes 1 cycle in hardware simulation
+    1
 
 	when 'SB', 'SH', 'SW'
-	  1
+    # Only takes 1 cycle in hardware simulation
+    1
 
 	when 'ADDI', 'NOP'
 	  1
@@ -227,25 +233,46 @@ class Architecture < PML::Architecture
 	  1
 
 	when 'FENCE', 'FENCE_TSO', 'FENCE_I', 'ECALL', 'EBREAK'
+	  #FENCE: used for synchronizing when writing to the instruction cache
 	  1
 
 	when 'CSRRW', 'CSRRS', 'CSRRC', 'CSRRWI', 'CSRRSI', 'CSRRCI'
-	  1
+    # Wildcat hardware simulation does not support proper atomic operations
+    # Will be set to one clock cycle for now
+    # Atomic Read/Write CSR
+    1
 
-	when 'MUL', 'MULH', 'MULHSU', 'MULHU'
-	  1
+  # M-extension not implemented for Wildcat yet
 
-	when 'DIV', 'DIVU', 'REM', 'REMU'
-	  1
+  #when 'MUL', 'MULH', 'MULHSU', 'MULHU'
+  #5
+
+  #when 'DIV', 'DIVU', 'REM', 'REMU'
+  #33 #between 2 and 33, depending on operand value
+
+  # Pseudo instructions from RISCVInstrInfo.td
+  # (see https://gitlab.cs.fau.de/fusionclock/llvm/-/blob/llvm_70_pml_arm/lib/Target/RISCV/RISCVInstrInfo.td?ref_type=heads)
 
   when 'PseudoBR'
-    1
+    # Expands to jal x0
+    1 + PIPELINE_REFILL
 
-  when 'PseudoRET', 'PseudoBRIND', 'PseudoCALLIndirect', 'PseudoTAILIndirect'
-    1
+  when 'PseudoRET'
+    # Expands to jalr x0, x1, 0
+    1 + PIPELINE_REFILL
+
+  when 'PseudoBRIND'
+    # Expands to jalr x0, rs1, imm12
+    1 + PIPELINE_REFILL
+
+  when 'PseudoCALLIndirect', 'PseudoTAILIndirect'
+    # Expands to jalr x0, rs1, 0
+    1 + PIPELINE_REFILL
 
   when 'PseudoCALL', 'PseudoTAIL'
-    1
+    # Expands to auipc + jalr
+    1 + 1 + PIPELINE_REFILL
+
 	else
 	  die("Unknown opcode: #{instr.opcode}")
 	end
@@ -302,6 +329,6 @@ end # module RISCV
 module PML
 
 # Register architecture
-#Architecture.register("riscv32", RISCV32::Architecture)
+Architecture.register("riscv32", RISCV::Architecture)
 
 end # module PML
