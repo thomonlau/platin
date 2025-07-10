@@ -160,10 +160,15 @@ class Architecture < PML::Architecture
   FLASH_WAIT_CYCLES = 578
   CACHE_ACCESS = 1
 
+# Modified path_wcet from riscv32-esp32c3.rb
   def path_wcet(ilist)
-	cost = ilist.reduce(0) do |cycles, instr|
-      cycles = cycles + cycle_cost(instr) + 1 #FLASH_WAIT_CYCLES # access instructions
-	  cycles
+    cost = ilist.reduce(0) do |cycles, instr|
+      if instr.callees && !instr.callees.empty? && is_library_function?(instr.callees[0])
+        cycles = cycles + cycle_cost(instr) + lib_cycle_cost(instr.callees[0])
+      else
+        cycles = cycles + cycle_cost(instr)
+      end
+      cycles
     end
     cost
   end
@@ -173,22 +178,35 @@ class Architecture < PML::Architecture
     0
   end
 
+  LibraryFunction = {
+    MULSI3: "__mulsi3",
+    DIVSI3: "__divsi3",
+    UDIVSI3: "__udivsi3",
+    UMODSI3: "__umodsi3",
+    MODSI3: "__modsi3",
+    MEMSET: "memset",
+  }.freeze
+
+# TODO Refinement -> What is the worst-case cost of these functions?
+  LibraryFunctionCost = {
+    LibraryFunction[:MULSI3] => 9,
+    LibraryFunction[:DIVSI3] => 2,
+    LibraryFunction[:UDIVSI3] => 18,
+    LibraryFunction[:UMODSi3] => 13,
+    LibraryFunction[:MODSI3] => 12,
+    LibraryFunction[:MEMSET] => 10,
+  }.freeze
+
+  def is_library_function?(func)
+    LibraryFunction.values.include?(func)
+  end
+
   def lib_cycle_cost(func)
-    #binding.pry
-	case func
-	when "__mulsi3"
-		9
-	when "__divsi3"
-		2
-	when "__udivsi3"
-		18
-	when "__umodsi3"
-		13
-	when "__modsi3"
-		12
-	else
-		die("Unknown library function: #{func}")
-	end
+    cost = LibraryFunctionCost[func]
+    if cost.nil?
+      die("Unknown library function: #{func}")
+    end
+    cost
   end
 
   NUM_REGISTERS = 10

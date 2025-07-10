@@ -942,7 +942,10 @@ module PML
           n =~ /__umoddi3/ ||
           n =~ /__umodsi3/ ||
           n =~ /__unorddf2/ ||
-          n =~ /__unordsf2/
+          n =~ /__unordsf2/ ||
+          # For Rust -> There are more function like this, which should be handled at some point...
+          n =~ /memset/ ||
+          n =~ /.*panic_bounds_check.*/ # Functions are mangled, must use regex
       end.map do |n|
         block.function.module.by_label_or_name(n, true)
       end
