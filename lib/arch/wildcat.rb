@@ -224,7 +224,7 @@ class Architecture < PML::Architecture
 
 	when 'BEQ', 'BNE', 'BLT', 'BGE', 'BLTU', 'BGEU'
     # Assuming branching not taken
-    1 + PIPELINE_REFILLﬁ
+    1 + PIPELINE_REFILL
 
 	when 'LW'
     # Only takes 1 cycle in hardware simulation
