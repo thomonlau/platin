@@ -189,12 +189,12 @@ class Architecture < PML::Architecture
 
 # TODO Refinement -> What is the worst-case cost of these functions?
   LibraryFunctionCost = {
-    LibraryFunction[:MULSI3] => 9,
-    LibraryFunction[:DIVSI3] => 2,
-    LibraryFunction[:UDIVSI3] => 18,
-    LibraryFunction[:UMODSi3] => 13,
-    LibraryFunction[:MODSI3] => 12,
-    LibraryFunction[:MEMSET] => 10,
+    LibraryFunction[:MULSI3] => 34, # 17 instructions
+    LibraryFunction[:DIVSI3] => 50, # 25 instructions
+    LibraryFunction[:UDIVSI3] => 238, # 119 instructions
+    LibraryFunction[:UMODSI3] => 246, # 123 instructions
+    LibraryFunction[:MODSI3] => 48, # 24 instructions
+    LibraryFunction[:MEMSET] => 26, # 13 instructions
   }.freeze
 
   def is_library_function?(func)
@@ -224,7 +224,7 @@ class Architecture < PML::Architecture
 
 	when 'BEQ', 'BNE', 'BLT', 'BGE', 'BLTU', 'BGEU'
     # Assuming branching not taken
-    1 + PIPELINE_REFILL
+    1 + PIPELINE_REFILLﬁ
 
 	when 'LW'
     # Only takes 1 cycle in hardware simulation
